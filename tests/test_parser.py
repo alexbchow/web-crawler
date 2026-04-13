@@ -22,7 +22,6 @@ def test_extracts_absolute_link():
 
 # --- Tests you should write yourself (remove the skip when ready) ---
 
-@pytest.mark.skip(reason="implement this")
 def test_resolves_relative_link():
     # A relative href like "/about" should be resolved against base_url
     html = '<a href="/about">About</a>'
@@ -30,7 +29,6 @@ def test_resolves_relative_link():
     assert "https://example.com/about" in links
 
 
-@pytest.mark.skip(reason="implement this")
 def test_strips_fragment():
     # https://example.com/page#section should become https://example.com/page
     html = '<a href="https://example.com/page#section">link</a>'
@@ -39,14 +37,18 @@ def test_strips_fragment():
     assert "https://example.com/page#section" not in links
 
 
-@pytest.mark.skip(reason="implement this")
 def test_ignores_mailto_links():
     html = '<a href="mailto:someone@example.com">email</a>'
     links = extract_links(html, base_url="https://example.com")
     assert links == []
 
 
-@pytest.mark.skip(reason="implement this")
 def test_empty_page_returns_empty_list():
     links = extract_links("", base_url="https://example.com")
+    assert links == []
+
+
+def test_ignores_javascript_void_links():
+    html = '<a href="javascript:void(0)">click me</a>'
+    links = extract_links(html, base_url="https://example.com")
     assert links == []
