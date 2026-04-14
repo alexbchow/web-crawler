@@ -15,6 +15,34 @@ Key concepts you'll need to understand to implement this:
 """
 
 
+def normalize(url: str) -> str:
+    """Canonicalize a URL so that equivalent URLs map to the same string.
+
+    Called by extract_links before appending to results. The frontier
+    relies on string equality for deduplication, so two URLs that point
+    to the same page must produce identical strings after normalization.
+
+    Steps to implement (in order):
+      1. Parse with urlparse.
+      2. Lowercase the scheme and host (urllib may already do scheme for you).
+      3. Strip tracking query params — remove any key matching:
+           utm_source, utm_medium, utm_campaign, utm_term, utm_content,
+           fbclid, gclid, ref, source
+         Use urllib.parse.parse_qs / urlencode to rebuild the query string
+         after filtering. Sort remaining params so ?a=1&b=2 == ?b=2&a=1.
+      4. Strip trailing slash from the path ONLY if there is no query string.
+         (Trailing slash on the root path "/" should be kept.)
+      5. Reconstruct with urlunparse and return.
+
+    Args:
+        url: An absolute URL (scheme + host already resolved).
+
+    Returns:
+        The normalized URL string.
+    """
+    raise NotImplementedError
+
+
 def extract_links(html: str, base_url: str) -> list[str]:
     """Parse all hyperlinks out of an HTML page.
 
@@ -33,7 +61,7 @@ def extract_links(html: str, base_url: str) -> list[str]:
         joined_url = urljoin(base_url, link['href']) # find all links, join to base url
         parsed_url = urlparse(joined_url) # parse url 
         parsed_url = parsed_url._replace(fragment='') #remove fragment tags
-        if parsed_url.scheme in 'http, https': # allowlist for scheme
+        if parsed_url.scheme in ('http', 'https'): # allowlist for scheme
             normalized_url = urlunparse(parsed_url) 
             urls.append(normalized_url)
     return urls
