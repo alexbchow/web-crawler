@@ -22,7 +22,8 @@ class Frontier:
     """Tracks which URLs to crawl next and which have already been seen."""
 
     def __init__(self) -> None:
-        raise NotImplementedError("Implement this after fetcher.py.")
+        self.queue = deque()
+        self.seen = set()
 
     def add(self, url: str) -> None:
         """Add a URL to the frontier if it hasn't been seen before.
@@ -30,7 +31,9 @@ class Frontier:
         Args:
             url: An absolute URL to enqueue.
         """
-        raise NotImplementedError
+        if url not in self.seen: 
+            self.seen.add(url)
+            self.queue.append(url)
 
     def next(self) -> str | None:
         """Return the next URL to crawl, or None if the frontier is empty.
@@ -38,8 +41,11 @@ class Frontier:
         Returns:
             An absolute URL, or None if there is nothing left to crawl.
         """
-        raise NotImplementedError
+        return self.queue.popleft() if not self.is_empty() else None
+                
 
     def is_empty(self) -> bool:
         """Return True if there are no URLs left to crawl."""
-        raise NotImplementedError
+        if not self.queue:
+            return True
+        return False
