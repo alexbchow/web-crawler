@@ -53,7 +53,7 @@ def test_run_fetches_seed_url():
     with patch("crawler.crawler.fetch", return_value=FAKE_HTML) as mock_fetch, \
          patch("crawler.crawler.extract_links", return_value=[]):
         Crawler(seed_url=SEED, max_pages=1).run()
-        mock_fetch.assert_called_once_with(SEED)
+        assert mock_fetch.call_args.args[0] == SEED
 
 
 def test_run_passes_html_and_base_url_to_extract_links():
@@ -68,7 +68,7 @@ def test_run_adds_discovered_links_to_frontier_and_crawls_them():
     fetch_responses = {SEED: FAKE_HTML, PAGE_A: FAKE_HTML}
     extract_responses = {SEED: [PAGE_A], PAGE_A: []}
 
-    with patch("crawler.crawler.fetch", side_effect=lambda url: fetch_responses[url]) as mock_fetch, \
+    with patch("crawler.crawler.fetch", side_effect=lambda url, *args: fetch_responses[url]) as mock_fetch, \
          patch("crawler.crawler.extract_links", side_effect=lambda html, url: extract_responses[url]):
         Crawler(seed_url=SEED, max_pages=10).run()
 
@@ -81,7 +81,7 @@ def test_run_crawls_multiple_discovered_links():
     fetch_responses = {SEED: FAKE_HTML, PAGE_A: FAKE_HTML, PAGE_B: FAKE_HTML}
     extract_responses = {SEED: [PAGE_A, PAGE_B], PAGE_A: [], PAGE_B: []}
 
-    with patch("crawler.crawler.fetch", side_effect=lambda url: fetch_responses[url]) as mock_fetch, \
+    with patch("crawler.crawler.fetch", side_effect=lambda url, *args: fetch_responses[url]) as mock_fetch, \
          patch("crawler.crawler.extract_links", side_effect=lambda html, url: extract_responses[url]):
         Crawler(seed_url=SEED, max_pages=10).run()
 
@@ -123,7 +123,7 @@ def test_run_with_max_pages_one_only_fetches_seed():
         Crawler(seed_url=SEED, max_pages=1).run()
 
     assert mock_fetch.call_count == 1
-    assert mock_fetch.call_args == call(SEED)
+    assert mock_fetch.call_args.args[0] == SEED
 
 
 # ---------------------------------------------------------------------------
@@ -135,7 +135,7 @@ def test_run_does_not_fetch_same_url_twice():
     fetch_responses = {SEED: FAKE_HTML, PAGE_A: FAKE_HTML}
     extract_responses = {SEED: [PAGE_A, SEED], PAGE_A: [SEED]}
 
-    with patch("crawler.crawler.fetch", side_effect=lambda url: fetch_responses[url]) as mock_fetch, \
+    with patch("crawler.crawler.fetch", side_effect=lambda url, *args: fetch_responses[url]) as mock_fetch, \
          patch("crawler.crawler.extract_links", side_effect=lambda html, url: extract_responses[url]):
         Crawler(seed_url=SEED, max_pages=10).run()
 
@@ -157,7 +157,7 @@ def test_run_does_not_fetch_seed_again_if_discovered_as_link():
 
 def test_run_continues_after_fetch_error():
     # Fetching PAGE_A raises; the crawl should still reach PAGE_B.
-    def fake_fetch(url):
+    def fake_fetch(url, *args):
         if url == PAGE_A:
             raise Exception("connection refused")
         return FAKE_HTML
@@ -200,7 +200,7 @@ def test_run_handles_http_error_without_stopping():
     mock_response = MagicMock()
     mock_response.raise_for_status.side_effect = HTTPError("404")
 
-    def fake_fetch(url):
+    def fake_fetch(url, *args):
         if url == PAGE_A:
             raise HTTPError("404 Not Found")
         return FAKE_HTML

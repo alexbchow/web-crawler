@@ -44,6 +44,7 @@ class Crawler:
         pages_crawled = 0
         while not self.frontier.is_empty() and pages_crawled != self.max_pages:
           url = self.frontier.next()
+          print(f"[{pages_crawled}/{self.max_pages}] Crawling: {url}")
           pages_crawled+=1
           try: 
             html = fetch(url, self.session)
@@ -51,6 +52,9 @@ class Crawler:
              print(f"Failed {url}: {Exception}")
              continue
           links = extract_links(html, url)
+          print(f"  Found {len(links)} links")     
           for link in links:
               self.frontier.add(link)
 
+if __name__ == "__main__":
+   Crawler("https://example.com", max_pages=10).run()
