@@ -1,3 +1,4 @@
+from requests import Session
 """
 HTTP fetching.
 
@@ -29,4 +30,13 @@ def fetch(url: str) -> str:
         Decide what exceptions this should surface vs. swallow.
         Document your decision here before you implement it.
     """
-    raise NotImplementedError("Implement this after parser.py.")
+    s = Session()
+    s.headers.update({
+      "User-Agent": "MyCrawler/1.0 (+https://github.com/alexbchow/web-crawler)"
+})
+    response = s.get(url, timeout = (3, 30))
+    print(response)
+    print('text', response.text)
+    response.raise_for_status()
+    return response.text
+
