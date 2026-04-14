@@ -46,6 +46,4 @@ class Frontier:
 
     def is_empty(self) -> bool:
         """Return True if there are no URLs left to crawl."""
-        if not self.queue:
-            return True
-        return False
+        return not self.queue
