@@ -17,7 +17,7 @@ Key concepts you'll need:
 """
 
 
-def fetch(url: str) -> str:
+def fetch(url: str, session: Session = None) -> str:
     """Fetch a URL and return its HTML content.
 
     Args:
@@ -30,11 +30,10 @@ def fetch(url: str) -> str:
         Decide what exceptions this should surface vs. swallow.
         Document your decision here before you implement it.
     """
-    s = Session()
-    s.headers.update({
+    session.headers.update({
       "User-Agent": "MyCrawler/1.0 (+https://github.com/alexbchow/web-crawler)"
 })
-    response = s.get(url, timeout = (3, 30))
+    response = session.get(url, timeout = (3, 30))
     response.raise_for_status()
     return response.text
 
