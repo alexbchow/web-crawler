@@ -17,7 +17,7 @@ Key concepts you'll need:
 """
 
 
-def fetch(url: str, session: Session = None) -> str:
+def fetch(url: str, session: Session) -> str:
     """Fetch a URL and return its HTML content.
 
     Args:
@@ -26,13 +26,12 @@ def fetch(url: str, session: Session = None) -> str:
     Returns:
         The decoded HTML body of the response.
 
-    Raises:
-        Decide what exceptions this should surface vs. swallow.
-        Document your decision here before you implement it.
+    Raises:         
+      requests.exceptions.HTTPError: on 4xx/5xx responses
+      requests.exceptions.Timeout: if connect or read exceeds timeout                                                                                                   
+      requests.exceptions.ConnectionError: on DNS failure or refused connection
     """
-    session.headers.update({
-      "User-Agent": "MyCrawler/1.0 (+https://github.com/alexbchow/web-crawler)"
-})
+    
     response = session.get(url, timeout = (3, 30))
     response.raise_for_status()
     return response.text

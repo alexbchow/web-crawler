@@ -37,6 +37,8 @@ class Crawler:
         self.seed_url = seed_url
         self.frontier = Frontier()
         self.session = Session()
+        self.session.headers.update({
+      "User-Agent": "MyCrawler/1.0 (+https://github.com/alexbchow/web-crawler)"})
 
     def run(self) -> None:
         """Start the crawl loop and run until completion."""
@@ -48,13 +50,10 @@ class Crawler:
           pages_crawled+=1
           try: 
             html = fetch(url, self.session)
-          except Exception:
-             print(f"Failed {url}: {Exception}")
+          except Exception as e:
+             print(f"Failed {url}: {e}")
              continue
           links = extract_links(html, url)
           print(f"  Found {len(links)} links")     
           for link in links:
               self.frontier.add(link)
-
-if __name__ == "__main__":
-   Crawler("https://example.com", max_pages=10).run()
