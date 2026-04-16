@@ -21,7 +21,7 @@ The interesting engineering is in what happens around that loop:
 import logging
 import time
 
-from requests.exceptions import HTTPError, ConnectionError, Timeout
+from requests.exceptions import HTTPError, ConnectionError, Timeout, TooManyRedirects
 from crawler.fetcher import fetch, NonHTMLResponseError
 from crawler.frontier import Frontier
 from crawler.parser import extract_links
@@ -68,15 +68,19 @@ class Crawler:
                 logger.debug("Waiting %.2fs for %s", wait_time, url)
                 time.sleep(wait_time)
             try:
-                html = fetch(url, self.session)
+                html, final_url = fetch(url, self.session)
+                self.frontier.seen.add(final_url)
             except NonHTMLResponseError as e:                                                                                                                                       
                 logging.debug("Skipped %s: %s", url, e)       # not worth retrying, not an error                                                                                    
                 continue                                                                                                                                                            
             except (Timeout, ConnectionError) as e:                                                                                                                                 
                 logging.warning("Network error %s: %s", url, e) # transient, could retry later                                                                                      
                 continue                                                                                                                                                            
+            except TooManyRedirects as e:
+                logging.warning("Too many redirects %s: %s", url, e)  # permanent, skip
+                continue
             except HTTPError as e:
-                logging.warning("HTTP error %s: %s", url, e)    # 4xx/5xx, don't retry 4xx                                                                                          
+                logging.warning("HTTP error %s: %s", url, e)    # 4xx/5xx, don't retry 4xx
                 continue                                                                                                                                                            
             except Exception as e:
                 logging.error("Unexpected error %s: %s", url, e) # bug or unknown — log loudly                                                                                      
