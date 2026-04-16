@@ -14,6 +14,7 @@ from crawler.parser import extract_links
 
 # --- Example test to show the pattern. Write more like this. ---
 
+
 def test_extracts_absolute_link():
     html = '<html><body><a href="https://example.com/page">link</a></body></html>'
     links = extract_links(html, base_url="https://example.com")
@@ -21,6 +22,7 @@ def test_extracts_absolute_link():
 
 
 # --- Tests you should write yourself (remove the skip when ready) ---
+
 
 def test_resolves_relative_link():
     # A relative href like "/about" should be resolved against base_url
