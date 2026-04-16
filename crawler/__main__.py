@@ -32,8 +32,9 @@ def main() -> None:
         default=50,
         help="max pages crawler will navigate before stopping",
     )
+    parser.add_argument("--domain", type=str, help="scope control")
     args = parser.parse_args()
-    Crawler(args.seed_url, max_pages=args.max_pages).run()
+    Crawler(args.seed_url, max_pages=args.max_pages, domain=args.domain).run()
 
 
 if __name__ == "__main__":

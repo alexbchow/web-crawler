@@ -25,6 +25,7 @@ from crawler.fetcher import fetch
 from crawler.frontier import Frontier
 from crawler.parser import extract_links
 from requests import Session
+from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +33,7 @@ logger = logging.getLogger(__name__)
 class Crawler:
     """Single-threaded, synchronous web crawler."""
 
-    def __init__(self, seed_url: str, max_pages: int = 50) -> None:
+    def __init__(self, seed_url: str, max_pages: int = 50, domain: str = None) -> None:
         """
         Args:
             seed_url: The starting URL for the crawl.
@@ -45,6 +46,7 @@ class Crawler:
         self.session.headers.update(
             {"User-Agent": "MyCrawler/1.0 (+https://github.com/alexbchow/web-crawler)"}
         )
+        self.domain = domain
 
     def run(self) -> None:
         """Start the crawl loop and run until completion."""
@@ -52,8 +54,11 @@ class Crawler:
         pages_crawled = 0
         while not self.frontier.is_empty() and pages_crawled != self.max_pages:
             url = self.frontier.next()
+            domain = urlparse(url).netloc
             logger.info("[%d/%d] Crawling: %s", pages_crawled, self.max_pages, url)
             pages_crawled += 1
+            if self.domain and self.domain != domain:
+                continue
             if not self.frontier.is_allowed(url, self.session.headers["User-Agent"]):
                 logger.debug("Skipping (robots.txt): %s", url)
                 continue
