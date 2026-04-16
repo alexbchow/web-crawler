@@ -24,7 +24,7 @@ import time
 from requests.exceptions import HTTPError, ConnectionError, Timeout, TooManyRedirects
 from crawler.fetcher import fetch, NonHTMLResponseError
 from crawler.frontier import Frontier
-from crawler.parser import extract_links
+from crawler.parser import extract_links, is_nofollow_page
 from requests import Session
 from urllib.parse import urlparse
 
@@ -70,21 +70,30 @@ class Crawler:
             try:
                 html, final_url = fetch(url, self.session)
                 self.frontier.seen.add(final_url)
-            except NonHTMLResponseError as e:                                                                                                                                       
-                logging.debug("Skipped %s: %s", url, e)       # not worth retrying, not an error                                                                                    
-                continue                                                                                                                                                            
-            except (Timeout, ConnectionError) as e:                                                                                                                                 
-                logging.warning("Network error %s: %s", url, e) # transient, could retry later                                                                                      
-                continue                                                                                                                                                            
+                if is_nofollow_page(html):
+                    logger.debug("Skipping links (nofollow page): %s", url)
+                    continue
+            except NonHTMLResponseError as e:
+                logging.debug(
+                    "Skipped %s: %s", url, e
+                )  # not worth retrying, not an error
+                continue
+            except (Timeout, ConnectionError) as e:
+                logging.warning(
+                    "Network error %s: %s", url, e
+                )  # transient, could retry later
+                continue
             except TooManyRedirects as e:
                 logging.warning("Too many redirects %s: %s", url, e)  # permanent, skip
                 continue
             except HTTPError as e:
-                logging.warning("HTTP error %s: %s", url, e)    # 4xx/5xx, don't retry 4xx
-                continue                                                                                                                                                            
+                logging.warning("HTTP error %s: %s", url, e)  # 4xx/5xx, don't retry 4xx
+                continue
             except Exception as e:
-                logging.error("Unexpected error %s: %s", url, e) # bug or unknown — log loudly                                                                                      
-                continue   
+                logging.error(
+                    "Unexpected error %s: %s", url, e
+                )  # bug or unknown — log loudly
+                continue
             finally:
                 self.frontier.record_fetch(url)
             links = extract_links(html, url)

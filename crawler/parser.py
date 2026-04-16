@@ -28,6 +28,16 @@ TRACKING_PARAMS = {
 }
 
 
+def is_nofollow_page(html: str) -> bool:
+    soup = BeautifulSoup(html, "lxml")
+    for meta_tag in soup.find_all("meta", attrs={"name": "robots"}):
+        if "nofollow" in meta_tag.get("content", "") or "noindex" in meta_tag.get(
+            "content", ""
+        ):
+            return True
+    return False
+
+
 def normalize(url: str) -> str:
     """Canonicalize a URL so that equivalent URLs map to the same string.
 
@@ -102,6 +112,8 @@ def extract_links(html: str, base_url: str) -> list[str]:
     urls = []
     soup = BeautifulSoup(html, "lxml")
     for link in soup.find_all("a", href=True):  # find all a tags in html
+        if "nofollow" in link.get("rel", []):
+            continue
         joined_url = urljoin(base_url, link["href"])  # find all links, join to base url
         parsed_url = urlparse(joined_url)  # parse url
         if parsed_url.scheme in ("http", "https"):  # allowlist for scheme

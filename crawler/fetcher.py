@@ -68,12 +68,12 @@ def fetch(url: str, session: Session) -> str:
     #         Use errors="replace" so malformed bytes don't crash the crawl:
     #           return response.content.decode(charset, errors="replace")
     msg = Message()
-    msg['content-type'] = content_type
+    msg["content-type"] = content_type
     charset = msg.get_param("charset")
     if not charset:
-      match = re.search(rb'charset=["\']?([\w-]+)', response.content[:1024])
-      if match:
-        charset = match.group(1).decode("ascii")
+        match = re.search(rb'charset=["\']?([\w-]+)', response.content[:1024])
+        if match:
+            charset = match.group(1).decode("ascii")
     if not charset:
         charset = response.apparent_encoding
-    return (response.content.decode(charset, errors = "replace"), response.url)
+    return (response.content.decode(charset, errors="replace"), response.url)

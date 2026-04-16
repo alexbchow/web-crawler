@@ -76,7 +76,8 @@ def test_run_adds_discovered_links_to_frontier_and_crawls_them():
 
     with (
         patch(
-            "crawler.crawler.fetch", side_effect=lambda url, *args: (fetch_responses[url], url)
+            "crawler.crawler.fetch",
+            side_effect=lambda url, *args: (fetch_responses[url], url),
         ) as mock_fetch,
         patch(
             "crawler.crawler.extract_links",
@@ -96,7 +97,8 @@ def test_run_crawls_multiple_discovered_links():
 
     with (
         patch(
-            "crawler.crawler.fetch", side_effect=lambda url, *args: (fetch_responses[url], url)
+            "crawler.crawler.fetch",
+            side_effect=lambda url, *args: (fetch_responses[url], url),
         ) as mock_fetch,
         patch(
             "crawler.crawler.extract_links",
@@ -165,7 +167,8 @@ def test_run_does_not_fetch_same_url_twice():
 
     with (
         patch(
-            "crawler.crawler.fetch", side_effect=lambda url, *args: (fetch_responses[url], url)
+            "crawler.crawler.fetch",
+            side_effect=lambda url, *args: (fetch_responses[url], url),
         ) as mock_fetch,
         patch(
             "crawler.crawler.extract_links",

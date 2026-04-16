@@ -90,9 +90,9 @@ def test_charset_from_meta_charset_tag():
 
 def test_charset_from_meta_http_equiv_tag():
     content = (
-        b'<html><head>'
+        b"<html><head>"
         b'<meta http-equiv="Content-Type" content="text/html; charset=latin-1">'
-        b'</head><body>h\xe9llo</body></html>'
+        b"</head><body>h\xe9llo</body></html>"
     )
     response = make_response(
         content_type="text/html",
@@ -105,7 +105,7 @@ def test_charset_from_meta_http_equiv_tag():
 
 def test_meta_charset_without_quotes():
     # <meta charset=utf-8> — no quotes around value
-    content = b'<html><head><meta charset=utf-8></head><body>hello</body></html>'
+    content = b"<html><head><meta charset=utf-8></head><body>hello</body></html>"
     response = make_response(
         content_type="text/html",
         content=content,
