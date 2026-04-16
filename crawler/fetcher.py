@@ -1,4 +1,5 @@
 from requests import Session
+
 """
 HTTP fetching.
 
@@ -26,13 +27,12 @@ def fetch(url: str, session: Session) -> str:
     Returns:
         The decoded HTML body of the response.
 
-    Raises:         
+    Raises:
       requests.exceptions.HTTPError: on 4xx/5xx responses
-      requests.exceptions.Timeout: if connect or read exceeds timeout                                                                                                   
+      requests.exceptions.Timeout: if connect or read exceeds timeout
       requests.exceptions.ConnectionError: on DNS failure or refused connection
     """
-    
-    response = session.get(url, timeout = (3, 30))
+
+    response = session.get(url, timeout=(3, 30))
     response.raise_for_status()
     return response.text
-

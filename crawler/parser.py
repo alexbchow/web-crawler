@@ -1,5 +1,6 @@
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse, urlunparse
+
 """
 HTML parsing and link extraction.
 
@@ -56,12 +57,12 @@ def extract_links(html: str, base_url: str) -> list[str]:
         here — deduplication is the frontier's responsibility.
     """
     urls = []
-    soup = BeautifulSoup(html, 'lxml')
-    for link in soup.find_all('a',href=True): #find all a tags in html
-        joined_url = urljoin(base_url, link['href']) # find all links, join to base url
-        parsed_url = urlparse(joined_url) # parse url 
-        parsed_url = parsed_url._replace(fragment='') #remove fragment tags
-        if parsed_url.scheme in ('http', 'https'): # allowlist for scheme
-            normalized_url = urlunparse(parsed_url) 
+    soup = BeautifulSoup(html, "lxml")
+    for link in soup.find_all("a", href=True):  # find all a tags in html
+        joined_url = urljoin(base_url, link["href"])  # find all links, join to base url
+        parsed_url = urlparse(joined_url)  # parse url
+        parsed_url = parsed_url._replace(fragment="")  # remove fragment tags
+        if parsed_url.scheme in ("http", "https"):  # allowlist for scheme
+            normalized_url = urlunparse(parsed_url)
             urls.append(normalized_url)
     return urls

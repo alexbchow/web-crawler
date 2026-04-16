@@ -16,16 +16,20 @@ from crawler.crawler import Crawler
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Basic web crawler."
-    )
+    parser = argparse.ArgumentParser(description="Basic web crawler.")
 
     # TODO: add positional argument: seed_url (type str)
     parser.add_argument("seed_url", type=str, help="seed url for crawler to start with")
     # TODO: add optional argument: --max-pages (type int, default your choice)
-    parser.add_argument("--max-pages", type=int, default=50, help="max pages crawler will navigate before stopping") 
+    parser.add_argument(
+        "--max-pages",
+        type=int,
+        default=50,
+        help="max pages crawler will navigate before stopping",
+    )
     args = parser.parse_args()
     Crawler(args.seed_url, max_pages=args.max_pages).run()
+
 
 if __name__ == "__main__":
     main()
