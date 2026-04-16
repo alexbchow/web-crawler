@@ -28,7 +28,7 @@ TRACKING_PARAMS = {
 }
 
 
-def normalize(url: str, TRACKING_PARAMS) -> str:
+def normalize(url: str) -> str:
     """Canonicalize a URL so that equivalent URLs map to the same string.
 
     Called by extract_links before appending to results. The frontier
