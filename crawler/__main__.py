@@ -12,15 +12,20 @@ Steps to implement:
 """
 
 import argparse
+import logging
+
 from crawler.crawler import Crawler
 
 
 def main() -> None:
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(message)s",
+        datefmt="%H:%M:%S",
+    )
     parser = argparse.ArgumentParser(description="Basic web crawler.")
 
-    # TODO: add positional argument: seed_url (type str)
     parser.add_argument("seed_url", type=str, help="seed url for crawler to start with")
-    # TODO: add optional argument: --max-pages (type int, default your choice)
     parser.add_argument(
         "--max-pages",
         type=int,
