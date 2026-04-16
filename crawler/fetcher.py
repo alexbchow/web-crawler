@@ -18,6 +18,10 @@ Key concepts you'll need:
 """
 
 
+class NonHTMLResponseError(Exception):
+    """Raised when a response Content-Type is not text/html."""
+
+
 def fetch(url: str, session: Session) -> str:
     """Fetch a URL and return its HTML content.
 
@@ -35,4 +39,7 @@ def fetch(url: str, session: Session) -> str:
 
     response = session.get(url, timeout=(3, 30))
     response.raise_for_status()
+    content_type = response.headers.get("Content-Type")
+    if "text/html" not in content_type:
+        raise NonHTMLResponseError(f"{url} returned Content-Type: {content_type!r}")
     return response.text

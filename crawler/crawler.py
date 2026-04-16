@@ -21,7 +21,8 @@ The interesting engineering is in what happens around that loop:
 import logging
 import time
 
-from crawler.fetcher import fetch
+from requests.exceptions import HTTPError, ConnectionError, Timeout
+from crawler.fetcher import fetch, NonHTMLResponseError
 from crawler.frontier import Frontier
 from crawler.parser import extract_links
 from requests import Session
@@ -68,9 +69,18 @@ class Crawler:
                 time.sleep(wait_time)
             try:
                 html = fetch(url, self.session)
+            except NonHTMLResponseError as e:                                                                                                                                       
+                logging.debug("Skipped %s: %s", url, e)       # not worth retrying, not an error                                                                                    
+                continue                                                                                                                                                            
+            except (Timeout, ConnectionError) as e:                                                                                                                                 
+                logging.warning("Network error %s: %s", url, e) # transient, could retry later                                                                                      
+                continue                                                                                                                                                            
+            except HTTPError as e:
+                logging.warning("HTTP error %s: %s", url, e)    # 4xx/5xx, don't retry 4xx                                                                                          
+                continue                                                                                                                                                            
             except Exception as e:
-                logger.warning("Failed %s: %s", url, e)
-                continue
+                logging.error("Unexpected error %s: %s", url, e) # bug or unknown — log loudly                                                                                      
+                continue   
             finally:
                 self.frontier.record_fetch(url)
             links = extract_links(html, url)
