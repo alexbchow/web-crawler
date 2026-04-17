@@ -87,15 +87,15 @@ Make the crawler a good citizen before scaling it up.
 
 ### Phase 3 — persistence & resumability (current focus)
 
-Survive crashes; produce usable output. Introduce **MinIO** (self-hosted, S3-compatible — free) for object storage.
+Survive crashes; produce usable output. Use **AWS S3** for object storage (free tier: 5GB storage, 20k GET requests/month).
 
 - [ ] **Persistent frontier**: back `Frontier` with SQLite (`frontier.db`) — two tables: `seen(url TEXT PRIMARY KEY)` and `queue(url, priority, added_at)`; crawl can resume after interruption
 - [ ] **Graceful shutdown**: catch `SIGINT`; flush in-memory queue to SQLite before exiting
 - [ ] **Checkpointing**: `--resume` flag to continue from an existing `frontier.db`
-- [ ] **Content store → MinIO**: spin up MinIO via Docker (`docker run -p 9000:9000 minio/minio`); write each crawled page as a gzip-compressed JSON object to a `raw-pages` bucket using `boto3` pointed at `http://localhost:9000`; object key = `{domain}/{sha256[:2]}/{sha256}.json.gz`; fields: `url`, `fetched_at`, `status_code`, `content_hash`, `html`
-- [ ] **Dedup by content hash**: compute SHA-256 of HTML body before uploading; check if key already exists in MinIO (HEAD request) and skip upload if so
-- [ ] **Config file**: `config.yaml` (seed URLs, max_pages, domain scope, delay, MinIO endpoint/bucket, output path) loaded via `PyYAML`; CLI flags override config
-- [ ] **Structured logging**: replace all `print` with `logging`; emit one JSON log line per crawled URL (`url`, `status`, `elapsed_ms`, `links_found`, `stored`)
+- [ ] **Content store → AWS S3**: create a `raw-pages` bucket via AWS console; write each crawled page as a gzip-compressed JSON object using `boto3`; object key = `{domain}/{sha256[:2]}/{sha256}.json.gz`; fields: `url`, `fetched_at`, `status_code`, `content_hash`, `html`; credentials via `~/.aws/credentials` or environment variables
+- [ ] **Dedup by content hash**: compute SHA-256 of HTML body before uploading; check if key already exists in S3 (`head_object`) and skip upload if so
+- [ ] **Config file**: `config.yaml` (seed URLs, max_pages, domain scope, delay, S3 bucket, output path) loaded via `PyYAML`; CLI flags override config
+- [ ] **Structured logging**: emit one JSON log line per crawled URL (`url`, `status`, `elapsed_ms`, `links_found`, `stored`)
 
 ---
 
@@ -104,11 +104,11 @@ Survive crashes; produce usable output. Introduce **MinIO** (self-hosted, S3-com
 Scale I/O throughput while preserving per-domain politeness.
 
 - [ ] **Thread-safe frontier**: add `threading.Lock` around all `Frontier` mutations; use `queue.Queue` instead of `deque` for blocking `next()` across threads
-- [ ] **`ThreadPoolExecutor` fetch loop**: replace the serial loop in `Crawler.run()` with a pool (default 10 workers); each worker pulls from frontier, fetches, stores to MinIO, and enqueues discovered links
+- [ ] **`ThreadPoolExecutor` fetch loop**: replace the serial loop in `Crawler.run()` with a pool (default 10 workers); each worker pulls from frontier, fetches, stores to S3, and enqueues discovered links
 - [ ] **Domain-partitioned back-queues**: maintain one `deque` per domain inside `Frontier`; a scheduler thread selects the next domain whose crawl-delay has elapsed (prevents multiple threads hammering the same host)
 - [ ] **Per-domain semaphore**: cap concurrent connections to any single domain (default 2) regardless of pool size
 - [ ] **Shared `requests.Session` per thread**: use `threading.local()` to give each thread its own session for connection pooling
-- [ ] **Progress display**: `tqdm` progress bar with pages crawled, queue depth, pages/sec, and MinIO objects written
+- [ ] **Progress display**: `tqdm` progress bar with pages crawled, queue depth, pages/sec, and S3 objects written
 - [ ] **tests**: concurrency tests asserting no duplicate URLs fetched under parallel execution; use `pytest-httpserver` as a mock origin
 
 ---
@@ -120,7 +120,7 @@ Higher throughput with lower resource usage than threads.
 - [ ] **Rewrite fetcher with `httpx[async]`**: `async def fetch(url, client)` returning HTML string; same timeout, UA, and exception policy as sync version
 - [ ] **`asyncio`-based crawl loop**: replace `ThreadPoolExecutor` with `asyncio.TaskGroup`; bounded concurrency via `asyncio.Semaphore(max_workers)`
 - [ ] **Async per-domain rate limiting**: one `asyncio.Lock` + timestamp per domain; `await asyncio.sleep(delay)` without blocking the event loop
-- [ ] **Async MinIO writes**: use `aioboto3` (async wrapper around `boto3`) so S3 uploads don't block the event loop
+- [ ] **Async S3 writes**: use `aioboto3` (async wrapper around `boto3`) so S3 uploads don't block the event loop
 - [ ] **DNS caching**: `aiodns` resolver to avoid redundant DNS lookups at high concurrency
 - [ ] **Streaming responses**: stream response bodies and abort if `Content-Type` is not `text/html` before reading the full body
 - [ ] **CLI overhaul**: replace `argparse` with `typer` + `rich` for colored output, a live stats table, and `--dry-run` mode
@@ -131,13 +131,13 @@ Higher throughput with lower resource usage than threads.
 
 Introduce **Redis** (free, open source) so multiple crawler processes can share frontier and rate-limit state.
 
-- [ ] **Docker Compose**: add `docker-compose.yml` with services for `redis` (port 6379) and `minio` (port 9000); single `docker compose up` starts the full local stack
+- [ ] **Docker Compose**: add `docker-compose.yml` with a `redis` service (port 6379); single `docker compose up` starts the full local stack (S3 is remote via AWS)
 - [ ] **Redis-backed frontier**: replace SQLite with Redis using `redis-py`; use a Redis `SET` for seen URLs and a `ZSET` (sorted set, score = priority) for the pending queue; atomic `ZADD` + `SISMEMBER` operations replace the in-process lock
 - [ ] **Redis robots.txt cache**: store parsed `robots.txt` per domain as a Redis string with a 24 h TTL (`SET domain:robots <rules> EX 86400`) so all workers share the same cache
 - [ ] **Distributed rate limiting via Redis**: use a Redis sorted set (`domain:last_fetch`) keyed by domain with score = last fetch timestamp; workers atomically check and update this before fetching, enforcing crawl delay across processes
 - [ ] **Bloom filter via RedisBloom**: use the `RedisBloom` module (`BF.ADD` / `BF.EXISTS`) for memory-efficient distributed dedup — replaces the in-process `seen` set; false-positive rate ~0.1%
-- [ ] **Horizontal scaling**: launch N identical crawler processes pointing at the same Redis and MinIO; no coordination code needed beyond the shared Redis state
-- [ ] **Prometheus metrics**: each worker exposes a `/metrics` endpoint via `prometheus_client` with gauges for pages/sec, error rate, Redis queue depth, active workers, MinIO objects written
+- [ ] **Horizontal scaling**: launch N identical crawler processes pointing at the same Redis and S3 bucket; no coordination code needed beyond the shared Redis state
+- [ ] **Prometheus metrics**: each worker exposes a `/metrics` endpoint via `prometheus_client` with gauges for pages/sec, error rate, Redis queue depth, active workers, S3 objects written
 
 ---
 
@@ -152,7 +152,7 @@ Introduce **Apache Kafka** (free, open source via Docker) to decouple fetching, 
   - `crawl-events` — one event per fetch (url, status, elapsed_ms, error); feeds monitoring
 - [ ] **Fetcher service** (`services/fetcher.py`): consumes URLs from `discovered-urls` (via `aiokafka`), fetches HTML, publishes raw page to `raw-pages` and fetch event to `crawl-events`
 - [ ] **Parser service** (`services/parser.py`): consumes `raw-pages`, extracts links, publishes discovered URLs back to `discovered-urls`; stateless and horizontally scalable
-- [ ] **Storage service** (`services/storage.py`): consumes `raw-pages`, writes gzip-compressed JSON to MinIO `raw-pages` bucket; deduplicates by SHA-256 before writing
+- [ ] **Storage service** (`services/storage.py`): consumes `raw-pages`, writes gzip-compressed JSON to S3 `raw-pages` bucket; deduplicates by SHA-256 before writing
 - [ ] **Frontier service** (`services/frontier_service.py`): consumes `discovered-urls`, deduplicates via RedisBloom, enforces per-domain rate limits via Redis, publishes crawlable URLs back to `discovered-urls` with a delay
 - [ ] **Consumer groups**: fetcher and storage services each use a separate Kafka consumer group so they independently process `raw-pages` at their own pace
 - [ ] **Backpressure**: if the `discovered-urls` topic lag grows too large, the frontier service pauses publishing to fetchers until lag drains
