@@ -113,7 +113,7 @@ def extract_links(html: str, base_url: str) -> list[str]:
     soup = BeautifulSoup(html, "lxml")
     canonical = soup.find("link", rel = "canonical")
     if canonical and canonical.get("href"):
-        return normalize(canonical["href"])
+        return [normalize(canonical["href"])]
     for link in soup.find_all("a", href=True):  # find all a tags in html
         if "nofollow" in link.get("rel", []):
             continue

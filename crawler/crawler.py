@@ -63,7 +63,7 @@ class Crawler:
             if not self.frontier.is_allowed(url, self.session.headers["User-Agent"]):
                 logger.debug("Skipping (robots.txt): %s", url)
                 continue
-            wait_time = self.frontier.seconds_until_allowed(url)
+            wait_time = self.frontier.seconds_until_allowed(url, self.session.headers["User-Agent"])
             if wait_time > 0:
                 logger.debug("Waiting %.2fs for %s", wait_time, url)
                 time.sleep(wait_time)

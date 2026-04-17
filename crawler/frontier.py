@@ -70,7 +70,7 @@ class Frontier:
             self.robots_cache[domain] = rp
         return self.robots_cache[domain].can_fetch(user_agent, url)
 
-    def seconds_until_allowed(self, url: str, crawl_delay: float = 1.0) -> float:
+    def seconds_until_allowed(self, url: str, user_agent: str, crawl_delay: float = 1.0) -> float:
         """Return how many seconds to wait before fetching this URL.
 
         Looks up the domain in last_fetched and computes how much of the
@@ -91,6 +91,11 @@ class Frontier:
             4. return max(0.0, crawl_delay - elapsed)
         """
         domain = urlparse(url).netloc
+        rp = self.robots_cache.get(domain)
+        if rp is not None:
+            robots_delay = rp.crawl_delay(user_agent)
+            if robots_delay is not None:
+                crawl_delay = robots_delay
         if domain not in self.last_fetched:
             return 0.0
         elapsed = time.time() - self.last_fetched[domain]
