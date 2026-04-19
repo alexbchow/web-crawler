@@ -16,6 +16,7 @@ Questions to answer before you implement:
 """
 
 import logging
+import sqlite3
 import time
 from collections import deque
 from urllib.parse import urlparse
@@ -27,11 +28,30 @@ logger = logging.getLogger(__name__)
 class Frontier:
     """Tracks which URLs to crawl next and which have already been seen."""
 
-    def __init__(self) -> None:
+    def __init__(self, db_path: str = "frontier.db", resume: bool = False) -> None:
         self.queue = deque()
         self.seen = set()
         self.last_fetched = {}
         self.robots_cache = {}
+        self.con = sqlite3.connect(db_path)
+
+        self.con.execute("PRAGMA journal_mode=WAL")
+        self.con.execute("CREATE TABLE IF NOT EXISTS seen (url TEXT PRIMARY KEY)")
+        self.con.execute(
+            "CREATE TABLE IF NOT EXISTS queue (url TEXT, added_at TIMESTAMP)"
+        )
+        self.con.commit()
+
+        if resume:
+            for row in self.con.execute("SELECT (url) from seen"):
+                self.seen.add(row[0])
+            for row in self.con.execute("SELECT (url) from queue"):
+                self.seen.add(row[0])
+                self.queue.append(row[0])
+        else:
+            self.con.execute("DELETE FROM seen")
+            self.con.execute("DELETE FROM queue")
+            self.con.commit()
 
     def add(self, url: str) -> None:
         """Add a URL to the frontier if it hasn't been seen before.
@@ -42,6 +62,11 @@ class Frontier:
         if url not in self.seen:
             self.seen.add(url)
             self.queue.append(url)
+            self.con.execute(
+                "INSERT OR IGNORE INTO queue (url, added_at) VALUES (?, datetime('now'))",
+                (url,),
+            )
+            self.con.commit()
 
     def next(self) -> str | None:
         """Return the next URL to crawl, or None if the frontier is empty.
@@ -70,7 +95,9 @@ class Frontier:
             self.robots_cache[domain] = rp
         return self.robots_cache[domain].can_fetch(user_agent, url)
 
-    def seconds_until_allowed(self, url: str, user_agent: str, crawl_delay: float = 1.0) -> float:
+    def seconds_until_allowed(
+        self, url: str, user_agent: str, crawl_delay: float = 1.0
+    ) -> float:
         """Return how many seconds to wait before fetching this URL.
 
         Looks up the domain in last_fetched and computes how much of the
@@ -116,3 +143,6 @@ class Frontier:
         """
         domain = urlparse(url).netloc
         self.last_fetched[domain] = time.time()
+        self.con.execute("INSERT OR IGNORE INTO seen (url) VALUES (?)", (url,))
+        self.con.execute("DELETE FROM queue WHERE url = ?", (url,))
+        self.con.commit()

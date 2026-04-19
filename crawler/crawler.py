@@ -34,15 +34,22 @@ logger = logging.getLogger(__name__)
 class Crawler:
     """Single-threaded, synchronous web crawler."""
 
-    def __init__(self, seed_url: str, max_pages: int = 50, domain: str = None) -> None:
+    def __init__(
+        self,
+        seed_url: str,
+        max_pages: int = 50,
+        domain: str = None,
+        resume: bool = False,
+    ) -> None:
         """
         Args:
             seed_url: The starting URL for the crawl.
             max_pages: Stop after crawling this many pages.
+            resume: If True, reload state from an existing frontier.db.
         """
         self.max_pages = max_pages
         self.seed_url = seed_url
-        self.frontier = Frontier()
+        self.frontier = Frontier(resume=resume)
         self.session = Session()
         self.session.headers.update(
             {"User-Agent": "MyCrawler/1.0 (+https://github.com/alexbchow/web-crawler)"}
@@ -63,7 +70,9 @@ class Crawler:
             if not self.frontier.is_allowed(url, self.session.headers["User-Agent"]):
                 logger.debug("Skipping (robots.txt): %s", url)
                 continue
-            wait_time = self.frontier.seconds_until_allowed(url, self.session.headers["User-Agent"])
+            wait_time = self.frontier.seconds_until_allowed(
+                url, self.session.headers["User-Agent"]
+            )
             if wait_time > 0:
                 logger.debug("Waiting %.2fs for %s", wait_time, url)
                 time.sleep(wait_time)

@@ -33,8 +33,15 @@ def main() -> None:
         help="max pages crawler will navigate before stopping",
     )
     parser.add_argument("--domain", type=str, help="scope control")
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="resume crawl from existing frontier.db instead of starting fresh",
+    )
     args = parser.parse_args()
-    Crawler(args.seed_url, max_pages=args.max_pages, domain=args.domain).run()
+    Crawler(
+        args.seed_url, max_pages=args.max_pages, domain=args.domain, resume=args.resume
+    ).run()
 
 
 if __name__ == "__main__":
