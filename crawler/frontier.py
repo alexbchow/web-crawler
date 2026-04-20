@@ -1,18 +1,9 @@
 """
-URL frontier — the scheduler of the crawler.
+URL frontier — deduplication and ordering for the crawl.
 
-The frontier has two jobs:
-  1. Deduplication: never return a URL that has already been crawled.
-  2. Ordering: decide which URL to crawl next (and when).
-
-Implement this after fetcher.py is working. Start simple: a set for seen
-URLs and a queue.Queue for pending ones. Get it working before optimizing.
-
-Questions to answer before you implement:
-  - What makes two URLs "the same"? Is http://example.com/path and
-    http://example.com/path/ the same URL? What about ?utm_source=twitter?
-  - What happens when the queue is empty but there are pending retries?
-  - How will you enforce per-domain crawl delays in Phase 2?
+Backed by SQLite for crash-safe persistence. URLs flow from the queue
+table (pending) to the seen table (completed) as they are fetched.
+The resume flag reloads both tables into memory on startup.
 """
 
 import logging
@@ -33,8 +24,8 @@ class Frontier:
         self.seen = set()
         self.last_fetched = {}
         self.robots_cache = {}
-        self.con = sqlite3.connect(db_path)
 
+        self.con = sqlite3.connect(db_path)
         self.con.execute("PRAGMA journal_mode=WAL")
         self.con.execute("CREATE TABLE IF NOT EXISTS seen (url TEXT PRIMARY KEY)")
         self.con.execute(
@@ -43,9 +34,9 @@ class Frontier:
         self.con.commit()
 
         if resume:
-            for row in self.con.execute("SELECT (url) from seen"):
+            for row in self.con.execute("SELECT url FROM seen"):
                 self.seen.add(row[0])
-            for row in self.con.execute("SELECT (url) from queue"):
+            for row in self.con.execute("SELECT url FROM queue"):
                 self.seen.add(row[0])
                 self.queue.append(row[0])
         else:
@@ -69,11 +60,7 @@ class Frontier:
             self.con.commit()
 
     def next(self) -> str | None:
-        """Return the next URL to crawl, or None if the frontier is empty.
-
-        Returns:
-            An absolute URL, or None if there is nothing left to crawl.
-        """
+        """Return the next URL to crawl, or None if the frontier is empty."""
         return self.queue.popleft() if not self.is_empty() else None
 
     def is_empty(self) -> bool:
@@ -81,13 +68,12 @@ class Frontier:
         return not self.queue
 
     def is_allowed(self, url: str, user_agent: str) -> bool:
+        """Return True if robots.txt permits fetching this URL."""
         parsed = urlparse(url)
         domain, scheme = parsed.netloc, parsed.scheme
         if domain not in self.robots_cache:
             rp = RobotFileParser()
-            rp.set_url(
-                f"{scheme}://{domain}/robots.txt"
-            )  # https://www.youtube.com -> https://www.youtube.com/robots.txt
+            rp.set_url(f"{scheme}://{domain}/robots.txt")
             try:
                 rp.read()
             except Exception as e:
@@ -100,22 +86,13 @@ class Frontier:
     ) -> float:
         """Return how many seconds to wait before fetching this URL.
 
-        Looks up the domain in last_fetched and computes how much of the
-        crawl_delay period has already elapsed. Returns 0.0 if enough time
-        has passed or if the domain has never been fetched.
-
         Args:
             url: The URL about to be fetched.
-            crawl_delay: Minimum seconds between requests to the same domain.
+            user_agent: The crawler's User-Agent string.
+            crawl_delay: Fallback minimum seconds between requests to the same domain.
 
         Returns:
-            Seconds to wait (0.0 means fetch immediately).
-
-        Implementation:
-            1. Extract domain with urlparse(url).netloc
-            2. If domain not in self.last_fetched, return 0.0
-            3. elapsed = time.time() - self.last_fetched[domain]
-            4. return max(0.0, crawl_delay - elapsed)
+            Seconds to wait; 0.0 means fetch immediately.
         """
         domain = urlparse(url).netloc
         rp = self.robots_cache.get(domain)
@@ -129,17 +106,13 @@ class Frontier:
         return max(0.0, crawl_delay - elapsed)
 
     def record_fetch(self, url: str) -> None:
-        """Record that a URL's domain was just fetched.
+        """Record that a URL was just fetched.
 
-        Call this immediately after a successful or failed fetch so the
-        next request to the same domain respects the crawl delay.
+        Updates the per-domain crawl delay timestamp and moves the URL
+        from the queue table to the seen table in SQLite.
 
         Args:
             url: The URL that was just fetched.
-
-        Implementation:
-            1. Extract domain with urlparse(url).netloc
-            2. self.last_fetched[domain] = time.time()
         """
         domain = urlparse(url).netloc
         self.last_fetched[domain] = time.time()
