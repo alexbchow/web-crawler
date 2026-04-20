@@ -6,10 +6,11 @@ tests run without network access. The real Frontier is used throughout —
 its deduplication behaviour is part of what we're testing here.
 
 Patch targets:
-  crawler.crawler.Session        — prevents a real Session from being created
-                                   in __init__; autouse so every test is covered
-  crawler.crawler.fetch          — controls what HTML is "returned"
-  crawler.crawler.extract_links  — controls what links are "found"
+  crawler.crawler.Session              — prevents a real Session from being created
+                                         in __init__; autouse so every test is covered
+  crawler.frontier.Frontier.is_allowed — prevents robots.txt network fetch; autouse
+  crawler.crawler.fetch                — controls what HTML is "returned"
+  crawler.crawler.extract_links        — controls what links are "found"
 """
 
 import pytest
@@ -21,6 +22,13 @@ from crawler.crawler import Crawler
 def mock_session():
     """Prevent Crawler.__init__ from opening a real requests.Session."""
     with patch("crawler.crawler.Session"):
+        yield
+
+
+@pytest.fixture(autouse=True)
+def mock_is_allowed():
+    """Prevent Frontier.is_allowed from fetching robots.txt over the network."""
+    with patch("crawler.frontier.Frontier.is_allowed", return_value=True):
         yield
 
 
@@ -266,3 +274,42 @@ def test_run_handles_http_error_without_stopping():
 
     fetched = [c.args[0] for c in mock_fetch.call_args_list]
     assert PAGE_B in fetched
+
+
+# ---------------------------------------------------------------------------
+# Graceful shutdown (SIGINT)
+# ---------------------------------------------------------------------------
+
+
+def test_shutdown_flag_stops_crawl_before_fetching():
+    with (
+        patch("crawler.crawler.fetch", return_value=(FAKE_HTML, SEED)) as mock_fetch,
+        patch("crawler.crawler.extract_links", return_value=[PAGE_A, PAGE_B]),
+    ):
+        crawler = Crawler(seed_url=SEED, max_pages=100)
+        crawler._shutdown = True
+        crawler.run()
+
+    assert mock_fetch.call_count == 0
+
+
+def test_sigint_during_fetch_stops_after_current_url():
+    import os
+    import signal
+
+    fetch_calls = []
+
+    def fake_fetch(url, *args):
+        fetch_calls.append(url)
+        os.kill(os.getpid(), signal.SIGINT)
+        return (FAKE_HTML, url)
+
+    with (
+        patch("crawler.crawler.fetch", side_effect=fake_fetch),
+        patch("crawler.crawler.extract_links", return_value=[PAGE_A, PAGE_B]),
+    ):
+        crawler = Crawler(seed_url=SEED, max_pages=100)
+        crawler.run()
+
+    assert len(fetch_calls) == 1
+    assert crawler._shutdown is True

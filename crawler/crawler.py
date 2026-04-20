@@ -20,6 +20,7 @@ The interesting engineering is in what happens around that loop:
 
 import logging
 import time
+import signal
 
 from requests.exceptions import HTTPError, ConnectionError, Timeout, TooManyRedirects
 from crawler.fetcher import fetch, NonHTMLResponseError
@@ -55,12 +56,18 @@ class Crawler:
             {"User-Agent": "MyCrawler/1.0 (+https://github.com/alexbchow/web-crawler)"}
         )
         self.domain = domain
+        self._shutdown = False
 
     def run(self) -> None:
         """Start the crawl loop and run until completion."""
+        def _handle_sigint(_sig, _frame):
+            logger.info("Shutting down gracefully...")
+            self._shutdown = True
+        
+        signal.signal(signal.SIGINT, _handle_sigint)
         self.frontier.add(self.seed_url)
         pages_crawled = 0
-        while not self.frontier.is_empty() and pages_crawled != self.max_pages:
+        while not self.frontier.is_empty() and pages_crawled != self.max_pages and not self._shutdown:
             url = self.frontier.next()
             domain = urlparse(url).netloc
             logger.info("[%d/%d] Crawling: %s", pages_crawled, self.max_pages, url)
