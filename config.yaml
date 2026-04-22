@@ -1,0 +1,5 @@
+seed_url: "http://books.toscrape.com"                                         
+max_pages: 50                                                                 
+domain: null                                                                  
+resume: false                                                                 
+s3_bucket: null 

@@ -8,22 +8,52 @@ Usage:
 
 import argparse
 import logging
+import yaml
+import json
 
 from crawler.crawler import Crawler
 
 
+class JSONFormatter(logging.Formatter):
+    def format(self, record):
+        data = {
+            "time": self.formatTime(record),
+            "level": record.levelname,
+            "msg": record.getMessage(),
+        }
+        for key in ("url", "links_found", "stored"):
+            if hasattr(record, key):
+                data[key] = getattr(record, key)
+        return json.dumps(data)
+
+
 def main() -> None:
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)s %(message)s",
-        datefmt="%H:%M:%S",
-    )
+    pre_parser = argparse.ArgumentParser(add_help=False)
+    pre_parser.add_argument("--config", type=str, default="config.yaml")
+    pre_args, _ = pre_parser.parse_known_args()
+
+    handler = logging.StreamHandler()
+    handler.setFormatter(JSONFormatter())
+    logging.getLogger().addHandler(handler)
+    logging.getLogger().setLevel(logging.INFO)
+
+    with open(pre_args.config) as f:
+        config = yaml.safe_load(f)
+
     parser = argparse.ArgumentParser(description="Single-threaded web crawler.")
-    parser.add_argument("seed_url", type=str, help="URL to start crawling from")
+    parser.add_argument("--config", type=str, default="config.yaml")
+
+    parser.add_argument(
+        "seed_url",
+        type=str,
+        nargs="?",
+        default=config.get("seed_url"),
+        help="URL to start crawling from",
+    )
     parser.add_argument(
         "--max-pages",
         type=int,
-        default=50,
+        default=config.get("max_pages", 50),
         help="maximum number of pages to crawl (default: 50)",
     )
     parser.add_argument(

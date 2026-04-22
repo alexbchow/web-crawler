@@ -72,7 +72,6 @@ class Crawler:
         ):
             url = self.frontier.next()
             domain = urlparse(url).netloc
-            logger.info("[%d/%d] Crawling: %s", pages_crawled, self.max_pages, url)
             pages_crawled += 1
 
             if self.domain and self.domain != domain:
@@ -120,6 +119,13 @@ class Crawler:
                     logger.warning("S3 upload failed for %s: %s", url, e)
 
             links = extract_links(html, url)
-            logger.info("  Found %d links", len(links))
+            logger.info(
+                "page_crawled",
+                extra={
+                    "url": url,
+                    "links_found": len(links),
+                    "stored": bool(self.s3_bucket),
+                },
+            )
             for link in links:
                 self.frontier.add(link)
