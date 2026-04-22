@@ -103,7 +103,7 @@ Survive crashes; produce usable output. Use **AWS S3** for object storage (free 
 - [x] **Content store → AWS S3**: `crawler/storage.py` with `store_page(url, html, bucket, s3_client)`; gzip-compressed JSON objects; key = `{domain}/{sha256[:2]}/{sha256}.json.gz`; boto3 S3 client created once in `Crawler.__init__`; upload errors logged as warnings without stopping the crawl
 - [x] **`--s3-bucket` CLI flag**: pass bucket name at runtime; storage is skipped if flag is omitted
 - [x] **tests**: `tests/test_frontier_persistence.py` covers write-through, resume, and fresh-start wipe; `tests/test_crawler.py` covers shutdown flag and SIGINT signal
-- [ ] **Dedup by content hash**: compute SHA-256 of HTML body before uploading; check if key already exists in S3 (`head_object`) and skip upload if so
+- [x] **Dedup by content hash**: compute SHA-256 of HTML body before uploading; check if key already exists in S3 (`head_object`) and skip upload if so
 - [ ] **Config file**: `config.yaml` (seed URLs, max_pages, domain scope, delay, S3 bucket, output path) loaded via `PyYAML`; CLI flags override config
 - [ ] **Structured logging**: emit one JSON log line per crawled URL (`url`, `status`, `elapsed_ms`, `links_found`, `stored`)
 

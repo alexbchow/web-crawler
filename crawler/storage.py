@@ -11,6 +11,7 @@ import hashlib
 import json
 from datetime import datetime, timezone
 from urllib.parse import urlparse
+from botocore.exceptions import ClientError
 
 
 def store_page(url: str, html: str, bucket: str, s3_client) -> str:
@@ -38,6 +39,12 @@ def store_page(url: str, html: str, bucket: str, s3_client) -> str:
     }
 
     compressed = gzip.compress(json.dumps(payload).encode("utf-8"))
+    try:
+        s3_client.head_object(Bucket=bucket, Key=key)
+        return key
+    except ClientError:
+        pass
+
     s3_client.put_object(Bucket=bucket, Key=key, Body=compressed)
 
     return key
