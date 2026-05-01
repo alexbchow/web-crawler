@@ -9,9 +9,10 @@ The resume flag reloads both tables into memory on startup.
 import logging
 import sqlite3
 import time
-from collections import deque
+import threading
 from urllib.parse import urlparse
 from urllib.robotparser import RobotFileParser
+from queue import Queue, Empty
 
 logger = logging.getLogger(__name__)
 
@@ -20,10 +21,11 @@ class Frontier:
     """Tracks which URLs to crawl next and which have already been seen."""
 
     def __init__(self, db_path: str = "frontier.db", resume: bool = False) -> None:
-        self.queue = deque()
+        self.queue = Queue()
         self.seen = set()
         self.last_fetched = {}
         self.robots_cache = {}
+        self._lock = threading.Lock()
 
         self.con = sqlite3.connect(db_path)
         self.con.execute("PRAGMA journal_mode=WAL")
@@ -38,7 +40,7 @@ class Frontier:
                 self.seen.add(row[0])
             for row in self.con.execute("SELECT url FROM queue"):
                 self.seen.add(row[0])
-                self.queue.append(row[0])
+                self.queue.put(row[0])
         else:
             self.con.execute("DELETE FROM seen")
             self.con.execute("DELETE FROM queue")
@@ -50,22 +52,26 @@ class Frontier:
         Args:
             url: An absolute URL to enqueue.
         """
-        if url not in self.seen:
-            self.seen.add(url)
-            self.queue.append(url)
-            self.con.execute(
-                "INSERT OR IGNORE INTO queue (url, added_at) VALUES (?, datetime('now'))",
-                (url,),
-            )
-            self.con.commit()
+        with self._lock:
+            if url not in self.seen:
+                self.seen.add(url)
+                self.queue.put(url)
+                self.con.execute(
+                    "INSERT OR IGNORE INTO queue (url, added_at) VALUES (?, datetime('now'))",
+                    (url,),
+                )
+                self.con.commit()
 
-    def next(self) -> str | None:
+    def next(self, block:bool = False) -> str | None:
         """Return the next URL to crawl, or None if the frontier is empty."""
-        return self.queue.popleft() if not self.is_empty() else None
+        try:
+            return self.queue.get(block=block, timeout=1.0)
+        except Empty:
+            return None
 
     def is_empty(self) -> bool:
         """Return True if there are no URLs left to crawl."""
-        return not self.queue
+        return self.queue.empty()
 
     def is_allowed(self, url: str, user_agent: str) -> bool:
         """Return True if robots.txt permits fetching this URL."""
@@ -114,8 +120,9 @@ class Frontier:
         Args:
             url: The URL that was just fetched.
         """
-        domain = urlparse(url).netloc
-        self.last_fetched[domain] = time.time()
-        self.con.execute("INSERT OR IGNORE INTO seen (url) VALUES (?)", (url,))
-        self.con.execute("DELETE FROM queue WHERE url = ?", (url,))
-        self.con.commit()
+        with self._lock:
+            domain = urlparse(url).netloc
+            self.last_fetched[domain] = time.time()
+            self.con.execute("INSERT OR IGNORE INTO seen (url) VALUES (?)", (url,))
+            self.con.execute("DELETE FROM queue WHERE url = ?", (url,))
+            self.con.commit()
