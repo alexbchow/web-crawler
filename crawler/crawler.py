@@ -11,6 +11,7 @@ import signal
 import time
 
 import boto3
+import threading
 from requests import Session
 from requests.exceptions import ConnectionError, HTTPError, Timeout, TooManyRedirects
 from urllib.parse import urlparse
@@ -49,11 +50,15 @@ class Crawler:
         self._shutdown = False
 
         self.frontier = Frontier(resume=resume)
-        self.session = Session()
-        self.session.headers.update(
-            {"User-Agent": "MyCrawler/1.0 (+https://github.com/alexbchow/web-crawler)"}
-        )
+        self._local = threading.local()
         self.s3_client = boto3.client("s3") if s3_bucket else None
+
+    def _get_session(self) -> Session:
+        if not hasattr(self._local, "session"):
+            s = Session()
+            s.headers.update({"User-Agent": "MyCrawler/1.0 (+https://github.com/alexbchow/web-crawler)"})
+            self._local.session = s                                                                                                                                                      
+        return self._local.session
 
     def run(self) -> None:
         """Start the crawl loop and run until completion."""
@@ -76,19 +81,19 @@ class Crawler:
 
             if self.domain and self.domain != domain:
                 continue
-            if not self.frontier.is_allowed(url, self.session.headers["User-Agent"]):
+            if not self.frontier.is_allowed(url, self._get_session().headers["User-Agent"]):
                 logger.debug("Skipping (robots.txt): %s", url)
                 continue
 
             wait_time = self.frontier.seconds_until_allowed(
-                url, self.session.headers["User-Agent"]
+                url, self._get_session().headers["User-Agent"]
             )
             if wait_time > 0:
                 logger.debug("Waiting %.2fs for %s", wait_time, url)
                 time.sleep(wait_time)
 
             try:
-                html, final_url = fetch(url, self.session)
+                html, final_url = fetch(url, self._get_session())
                 self.frontier.seen.add(final_url)
                 if is_nofollow_page(html):
                     logger.debug("Skipping links (nofollow page): %s", url)
